@@ -7,8 +7,8 @@ using System.Windows.Forms;
 [assembly: AssemblyCompany("BoplEight")]
 [assembly: AssemblyProduct("BoplEight Setup")]
 [assembly: AssemblyCopyright("Copyright (c) 2026")]
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyVersion("1.0.1.0")]
+[assembly: AssemblyFileVersion("1.0.1.0")]
 
 namespace BoplEight.Installer
 {

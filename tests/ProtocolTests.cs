@@ -36,6 +36,13 @@ namespace BoplEight.Tests
                 PaletteTests.ExtendedTeamPaletteProvidesFourDistinctTeamChoices,
                 MatchCompatibilityTests.LobbiesAcceptTwoThroughEightPlayers,
                 MatchCompatibilityTests.LobbiesAllowAHostToFormAMatchBeforeASecondPlayerJoins,
+                MatchCompatibilityTests.LobbyInvitesAwaitCompatibilityMetadataBeforeRejecting,
+                MatchCompatibilityTests.RefreshedVanillaLobbyInvitesAreRejected,
+                MatchCompatibilityTests.CachedCompatibleLobbyInvitesJoinWithoutRefreshing,
+                MatchCompatibilityTests.NewLobbyJoinRequestsReplaceStalePendingRequests,
+                MatchCompatibilityTests.LobbyJoinTimeoutsAreConsumedOnce,
+                MatchCompatibilityTests.PendingLobbyJoinCancellationIsConsumedOnce,
+                MatchCompatibilityTests.SteamLobbyJoinGateAllowsOnlyOneActiveJoin,
                 MatchCompatibilityTests.LobbiesRejectMismatchedVersions,
                 MatchCompatibilityTests.LobbiesRejectMismatchedGameAssemblies);
         }

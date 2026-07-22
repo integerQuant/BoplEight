@@ -8,12 +8,12 @@ Build the self-contained Windows installer from the repository root with:
 
 The build runs the BoplEight protocol tests and installer tests, stages the local official BepInEx 5.4.23.2 files, embeds the payload, and produces:
 
-- `dist/BoplEight-Setup-1.0.0.exe`
-- `dist/BoplEight-Setup-1.0.0.sha256.txt`
+- `dist/BoplEight-Setup-1.0.1.exe`
+- `dist/BoplEight-Setup-1.0.1.sha256.txt`
 
 ## Friend Instructions
 
-1. Download `BoplEight-Setup-1.0.0.exe`.
+1. Download `BoplEight-Setup-1.0.1.exe`.
 2. If Windows SmartScreen appears, click **More info**, then **Run anyway**.
 3. Approve the Windows administrator prompt.
 4. Click **Install BoplEight**.

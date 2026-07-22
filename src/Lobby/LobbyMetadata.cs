@@ -4,6 +4,13 @@ using System.Globalization;
 
 namespace BoplEight.Lobby
 {
+    public enum LobbyJoinDecision
+    {
+        AwaitMetadata,
+        Accept,
+        Reject
+    }
+
     public sealed class ModIdentity
     {
         public ModIdentity(string pluginId, string pluginVersion, byte protocolVersion, string gameAssemblyHash)
@@ -125,6 +132,42 @@ namespace BoplEight.Lobby
             }
 
             return true;
+        }
+
+        public static LobbyJoinDecision EvaluateForJoin(
+            IDictionary<string, string> metadata,
+            ModIdentity localIdentity,
+            bool metadataRefreshCompleted,
+            out string reason)
+        {
+            if (localIdentity == null)
+            {
+                TryValidateForJoin(metadata, localIdentity, out reason);
+                return LobbyJoinDecision.Reject;
+            }
+
+            string pluginId;
+            bool hasPluginIdentity = metadata != null
+                && metadata.TryGetValue(PluginIdKey, out pluginId)
+                && !string.IsNullOrEmpty(pluginId);
+            if (!hasPluginIdentity)
+            {
+                if (!metadataRefreshCompleted)
+                {
+                    reason = null;
+                    return LobbyJoinDecision.AwaitMetadata;
+                }
+
+                reason = "This lobby does not have BoplEight installed.";
+                return LobbyJoinDecision.Reject;
+            }
+
+            if (TryValidateForJoin(metadata, localIdentity, out reason))
+            {
+                return LobbyJoinDecision.Accept;
+            }
+
+            return LobbyJoinDecision.Reject;
         }
 
         private static bool TryReadPlayerRange(IDictionary<string, string> metadata, out int minimumPlayers, out int maximumPlayers)

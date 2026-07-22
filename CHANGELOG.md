@@ -2,6 +2,11 @@
 
 All notable BoplEight changes are documented here.
 
+## 1.0.1 - 2026-07-22
+
+- Fixed Steam friend invites being rejected before their BoplEight lobby metadata was downloaded.
+- Added a bounded metadata refresh before joining while preserving vanilla and mismatched-lobby rejection.
+
 ## 1.0.0 - 2026-07-22
 
 - Added synchronized two-through-eight-player Steam lobbies.

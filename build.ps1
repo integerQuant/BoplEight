@@ -27,7 +27,9 @@ if (!$NoInstall) {
 $protocolSources = @(
     (Join-Path $projectRoot "src\Protocol\PacketCodec.cs"),
     (Join-Path $projectRoot "src\Protocol\PacketRouter.cs"),
+    (Join-Path $projectRoot "src\Lobby\LobbyJoinGate.cs"),
     (Join-Path $projectRoot "src\Lobby\LobbyMetadata.cs"),
+    (Join-Path $projectRoot "src\Lobby\PendingLobbyJoinState.cs"),
     (Join-Path $projectRoot "src\Colors\TeamPalette.cs"),
     (Join-Path $projectRoot "src\Match\RosterModel.cs"),
     (Join-Path $projectRoot "src\Ui\RosterLayout.cs")

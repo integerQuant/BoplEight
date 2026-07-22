@@ -23,7 +23,7 @@ namespace BoplEight.Runtime
     {
         public const string PluginGuid = "io.opencode.bopleight";
         public const string PluginName = "BoplEight";
-        public const string PluginVersion = "1.0.0";
+        public const string PluginVersion = "1.0.1";
 
         // Patches are only applied to the game assembly inspected for this release.
         private const string SupportedGameAssemblySha256 = "06A154AF64AD962E534587058219FB94216C5CE53605BB9AF5F77CB433A4AE07";
@@ -38,8 +38,18 @@ namespace BoplEight.Runtime
         };
         private static readonly FieldInfo GameSessionSelfField = AccessTools.Field(typeof(GameSessionHandler), "selfRef");
         private static readonly FieldInfo PendingSceneLoadField = AccessTools.Field(typeof(GameSessionHandler), "SceneLoad");
+        private static readonly FieldInfo GameLobbyJoinInProgressField = AccessTools.Field(typeof(SteamManager), "isJoiningAlobbyAtm");
+        private static readonly FieldInfo GameMatchmakingInProgressField = AccessTools.Field(typeof(SteamManager), "currentlyInMatchmaking");
         private static readonly MethodInfo CreateLobbyMethod = AccessTools.Method(typeof(SteamManager), "createLobby");
+        private static readonly MethodInfo FindAndJoinLobbyMethod = AccessTools.Method(typeof(SteamManager), "FindAndJoinLobby");
+        private static readonly MethodInfo FindAndMergeLobbyMethod = AccessTools.Method(typeof(SteamManager), "FindAndMergeToYourLobby");
+        private static readonly MethodInfo JoinLobbyMethod = AccessTools.Method(typeof(SteamManager), "JoinLobby");
+        private static readonly LobbyJoinGate MatchmakingSearches = new LobbyJoinGate();
+        private static readonly LobbyJoinGate SteamLobbyJoins = new LobbyJoinGate();
+        private static readonly PendingLobbyJoinState PendingLobbyJoin = new PendingLobbyJoinState();
+        private const float LobbyMetadataTimeoutSeconds = 5f;
         private static bool lobbyReplacementPending;
+        private bool lobbyDataChangedSubscribed;
 
         internal static ManualLogSource Log;
         internal static ModIdentity Identity;
@@ -95,11 +105,15 @@ namespace BoplEight.Runtime
                 return;
             }
 
+            SteamMatchmaking.OnLobbyDataChanged += OnLobbyDataChanged;
+            lobbyDataChangedSubscribed = true;
             Logger.LogInfo("BoplEight 2-8 player runtime enabled. Modded replay recording is disabled during BoplEight matches.");
         }
 
         private void LateUpdate()
         {
+            CheckPendingLobbyJoinTimeout();
+
             string reason;
             if (!BoplEightSession.TryTakeMatchTermination(out reason))
             {
@@ -128,6 +142,56 @@ namespace BoplEight.Runtime
                     BoplEightSession.RequestMatchTermination(reason);
                 }
             }
+        }
+
+        private void OnDestroy()
+        {
+            if (lobbyDataChangedSubscribed)
+            {
+                SteamMatchmaking.OnLobbyDataChanged -= OnLobbyDataChanged;
+                lobbyDataChangedSubscribed = false;
+            }
+
+            CancelPendingLobbyJoin();
+        }
+
+        private static void OnLobbyDataChanged(SteamLobby lobby)
+        {
+            if (!PendingLobbyJoin.TryComplete((ulong)lobby.Id))
+            {
+                return;
+            }
+            SetGameLobbyJoinInProgress(false);
+
+            string reason;
+            LobbyJoinDecision decision = EvaluateModdedLobby(lobby, true, out reason);
+            if (decision != LobbyJoinDecision.Accept)
+            {
+                RejectLobbyJoin(reason, "Rejected lobby after refreshing Steam metadata: ");
+                return;
+            }
+
+            if (SteamManager.instance == null || JoinLobbyMethod == null)
+            {
+                RejectLobbyJoin("The Steam lobby is unavailable.", "Could not resume lobby join: ");
+                return;
+            }
+
+            Log.LogInfo("Verified refreshed BoplEight metadata for lobby " + lobby.Id + ".");
+            JoinLobbyMethod.Invoke(SteamManager.instance, new object[] { lobby });
+        }
+
+        private static void CheckPendingLobbyJoinTimeout()
+        {
+            if (!PendingLobbyJoin.TryTakeTimeout(UnityEngine.Time.realtimeSinceStartup))
+            {
+                return;
+            }
+            SetGameLobbyJoinInProgress(false);
+
+            RejectLobbyJoin(
+                "Steam did not return BoplEight lobby compatibility data in time.",
+                "Timed out before joining lobby: ");
         }
 
         private bool ForceLocalTeardown()
@@ -283,20 +347,124 @@ namespace BoplEight.Runtime
 
         internal static bool TryValidateModdedLobby(SteamLobby lobby, out string reason)
         {
+            return EvaluateModdedLobby(lobby, true, out reason) == LobbyJoinDecision.Accept;
+        }
+
+        internal static LobbyJoinDecision EvaluateModdedLobby(SteamLobby lobby, bool metadataRefreshCompleted, out string reason)
+        {
             if (Identity == null || !SteamClient.IsValid || (ulong)lobby.Id == 0)
             {
                 reason = "BoplEight has not initialized its compatibility identity.";
-                return false;
+                return LobbyJoinDecision.Reject;
             }
 
-            var metadata = new Dictionary<string, string>(StringComparer.Ordinal);
-            for (var index = 0; index < MetadataKeys.Length; index++)
+            try
             {
-                string key = MetadataKeys[index];
-                metadata[key] = lobby.GetData(key);
+                var metadata = new Dictionary<string, string>(StringComparer.Ordinal);
+                for (var index = 0; index < MetadataKeys.Length; index++)
+                {
+                    string key = MetadataKeys[index];
+                    metadata[key] = lobby.GetData(key);
+                }
+
+                return LobbyMetadata.EvaluateForJoin(metadata, Identity, metadataRefreshCompleted, out reason);
+            }
+            catch (Exception exception)
+            {
+                reason = "Steam could not read BoplEight lobby compatibility data.";
+                Log.LogWarning(reason + " " + exception.Message);
+                return LobbyJoinDecision.Reject;
+            }
+        }
+
+        internal static void DeferLobbyJoinUntilMetadataArrives(SteamLobby lobby)
+        {
+            ulong lobbyId = (ulong)lobby.Id;
+            PendingLobbyJoin.Begin(lobbyId, UnityEngine.Time.realtimeSinceStartup, LobbyMetadataTimeoutSeconds);
+            SetGameLobbyJoinInProgress(true);
+
+            bool requested;
+            try
+            {
+                requested = lobby.Refresh();
+            }
+            catch (Exception exception)
+            {
+                Log.LogWarning("Steam threw while requesting BoplEight lobby metadata: " + exception.Message);
+                requested = false;
             }
 
-            return LobbyMetadata.TryValidateForJoin(metadata, Identity, out reason);
+            if (requested)
+            {
+                Log.LogInfo("Waiting for Steam compatibility metadata for lobby " + lobby.Id + ".");
+                return;
+            }
+
+            if (PendingLobbyJoin.TryComplete(lobbyId))
+            {
+                SetGameLobbyJoinInProgress(false);
+                RejectLobbyJoin(
+                    "Steam could not request BoplEight lobby compatibility data.",
+                    "Could not defer lobby join: ");
+            }
+        }
+
+        internal static void CancelPendingLobbyJoin()
+        {
+            if (PendingLobbyJoin.TryCancel())
+            {
+                SetGameLobbyJoinInProgress(false);
+            }
+        }
+
+        internal static bool IsGameLobbyJoinInProgress()
+        {
+            return (GameLobbyJoinInProgressField != null
+                    && (bool)GameLobbyJoinInProgressField.GetValue(null))
+                || SteamLobbyJoins.IsActive;
+        }
+
+        internal static bool HasPendingLobbyJoin()
+        {
+            return PendingLobbyJoin.IsActive;
+        }
+
+        internal static bool IsGameMatchmakingInProgress()
+        {
+            return (GameMatchmakingInProgressField != null
+                    && (bool)GameMatchmakingInProgressField.GetValue(null))
+                || MatchmakingSearches.IsActive;
+        }
+
+        internal static bool TryMarkMatchmakingSearchStarted()
+        {
+            return MatchmakingSearches.TryEnter();
+        }
+
+        internal static void MarkMatchmakingSearchCompleted()
+        {
+            MatchmakingSearches.Exit();
+        }
+
+        internal static bool TryMarkSteamLobbyJoinStarted()
+        {
+            return SteamLobbyJoins.TryEnter();
+        }
+
+        internal static void MarkSteamLobbyJoinCompleted()
+        {
+            SteamLobbyJoins.Exit();
+        }
+
+        internal static void RejectLobbyJoin(string reason, string logPrefix)
+        {
+            if (string.IsNullOrEmpty(reason))
+            {
+                reason = "This lobby does not have BoplEight installed.";
+            }
+
+            Log.LogWarning(logPrefix + reason);
+            ErrorHandlingTextDisconnect.SetMainMenuLogMessage(reason);
         }
 
         internal static bool IsCurrentLobbyOwner(NetIdentity sender)
@@ -386,8 +554,26 @@ namespace BoplEight.Runtime
 
         private static void VerifyCriticalPatches()
         {
+            if (GameLobbyJoinInProgressField == null
+                || !GameLobbyJoinInProgressField.IsStatic
+                || GameLobbyJoinInProgressField.FieldType != typeof(bool))
+            {
+                throw new MissingFieldException("The game's lobby join guard was not found.");
+            }
+
+            if (GameMatchmakingInProgressField == null
+                || !GameMatchmakingInProgressField.IsStatic
+                || GameMatchmakingInProgressField.FieldType != typeof(bool))
+            {
+                throw new MissingFieldException("The game's matchmaking guard was not found.");
+            }
+
             MethodBase[] criticalMethods =
             {
+                FindAndJoinLobbyMethod,
+                FindAndMergeLobbyMethod,
+                JoinLobbyMethod,
+                AccessTools.Method(typeof(SteamLobby), "Join"),
                 AccessTools.Method(typeof(SteamManager), "HostGame"),
                 AccessTools.Method(typeof(CharacterSelectHandler_online), "ForceStartGame"),
                 AccessTools.Method(typeof(SteamManager), "InitNetworkClient"),
@@ -431,6 +617,11 @@ namespace BoplEight.Runtime
             }
 
             Log.LogInfo("Verified all critical roster, frame, simulation, spawn, and packet patches.");
+        }
+
+        private static void SetGameLobbyJoinInProgress(bool value)
+        {
+            GameLobbyJoinInProgressField.SetValue(null, value);
         }
 
         private static void LoggerFallback(string message)
@@ -537,25 +728,130 @@ namespace BoplEight.Runtime
         }
     }
 
+    [HarmonyPatch]
+    internal static class SteamManagerMatchmakingSearchPatch
+    {
+        private static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(SteamManager), "FindAndJoinLobby");
+            yield return AccessTools.Method(typeof(SteamManager), "FindAndMergeToYourLobby");
+        }
+
+        private static bool Prefix(ref System.Threading.Tasks.Task<bool> __result, out bool __state)
+        {
+            __state = false;
+            if (BoplEightPlugin.HasPendingLobbyJoin()
+                || BoplEightPlugin.IsGameLobbyJoinInProgress()
+                || !BoplEightPlugin.TryMarkMatchmakingSearchStarted())
+            {
+                __result = System.Threading.Tasks.Task.FromResult(false);
+                return false;
+            }
+
+            __state = true;
+            return true;
+        }
+
+        private static void Postfix(bool __state, ref System.Threading.Tasks.Task<bool> __result)
+        {
+            if (__state)
+            {
+                __result = TrackCompletion(__result);
+            }
+        }
+
+        private static async System.Threading.Tasks.Task<bool> TrackCompletion(System.Threading.Tasks.Task<bool> search)
+        {
+            try
+            {
+                return await search;
+            }
+            finally
+            {
+                BoplEightPlugin.MarkMatchmakingSearchCompleted();
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(SteamLobby), "Join")]
+    internal static class SteamLobbyJoinPatch
+    {
+        private static bool Prefix(ref System.Threading.Tasks.Task<RoomEnter> __result, out bool __state)
+        {
+            __state = false;
+            if (BoplEightPlugin.HasPendingLobbyJoin())
+            {
+                __result = System.Threading.Tasks.Task.FromResult(RoomEnter.Error);
+                return false;
+            }
+
+            if (!BoplEightPlugin.TryMarkSteamLobbyJoinStarted())
+            {
+                __result = System.Threading.Tasks.Task.FromResult(RoomEnter.Error);
+                return false;
+            }
+
+            __state = true;
+            return true;
+        }
+
+        private static void Postfix(bool __state, ref System.Threading.Tasks.Task<RoomEnter> __result)
+        {
+            if (__state)
+            {
+                __result = TrackCompletion(__result);
+            }
+        }
+
+        private static async System.Threading.Tasks.Task<RoomEnter> TrackCompletion(System.Threading.Tasks.Task<RoomEnter> join)
+        {
+            try
+            {
+                return await join;
+            }
+            finally
+            {
+                BoplEightPlugin.MarkSteamLobbyJoinCompleted();
+            }
+        }
+    }
+
     [HarmonyPatch(typeof(SteamManager), "JoinLobby")]
     internal static class SteamManagerJoinLobbyPatch
     {
         private static bool Prefix(SteamLobby lobby)
         {
-            string reason = null;
-            if (BoplEightPlugin.IsBoplEightLobby(lobby)
-                && BoplEightPlugin.TryValidateModdedLobby(lobby, out reason))
+            BoplEightPlugin.CancelPendingLobbyJoin();
+            if (BoplEightPlugin.IsGameMatchmakingInProgress())
+            {
+                BoplEightPlugin.RejectLobbyJoin(
+                    "Wait for matchmaking to finish stopping before joining a BoplEight lobby invite.",
+                    "Rejected lobby invite during matchmaking: ");
+                return false;
+            }
+
+            if (BoplEightPlugin.IsGameLobbyJoinInProgress())
+            {
+                BoplEightPlugin.RejectLobbyJoin(
+                    "Another Steam lobby join is already in progress.",
+                    "Rejected concurrent lobby join: ");
+                return false;
+            }
+
+            string reason;
+            LobbyJoinDecision decision = BoplEightPlugin.EvaluateModdedLobby(lobby, false, out reason);
+            if (decision == LobbyJoinDecision.Accept)
             {
                 return true;
             }
 
-            if (string.IsNullOrEmpty(reason))
+            if (decision == LobbyJoinDecision.AwaitMetadata)
             {
-                reason = "This lobby does not have BoplEight installed.";
+                BoplEightPlugin.DeferLobbyJoinUntilMetadataArrives(lobby);
+                return false;
             }
 
-            BoplEightPlugin.Log.LogWarning("Rejected lobby before joining: " + reason);
-            ErrorHandlingTextDisconnect.SetMainMenuLogMessage(reason);
+            BoplEightPlugin.RejectLobbyJoin(reason, "Rejected lobby before joining: ");
             return false;
         }
     }
@@ -565,6 +861,7 @@ namespace BoplEight.Runtime
     {
         private static bool Prefix(SteamLobby __0)
         {
+            BoplEightPlugin.CancelPendingLobbyJoin();
             if (!BoplEightPlugin.IsBoplEightLobby(__0))
             {
                 if (__0.Owner.IsMe)
@@ -786,11 +1083,21 @@ namespace BoplEight.Runtime
         }
     }
 
+    [HarmonyPatch(typeof(SteamManager), "StartMatchmaking")]
+    internal static class SteamManagerStartMatchmakingPatch
+    {
+        private static void Prefix()
+        {
+            BoplEightPlugin.CancelPendingLobbyJoin();
+        }
+    }
+
     [HarmonyPatch(typeof(SteamManager), "LeaveLobby")]
     internal static class SteamManagerLeaveLobbyPatch
     {
         private static void Prefix()
         {
+            BoplEightPlugin.CancelPendingLobbyJoin();
             BoplEightSession.Clear();
         }
 
