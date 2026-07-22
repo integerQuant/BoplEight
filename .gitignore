@@ -1,0 +1,38 @@
+# Build outputs
+/dist/
+/installer/dist/
+/installer/obj/
+**/bin/
+**/obj/
+
+# Compiled and packaged artifacts
+*.dll
+*.exe
+*.pdb
+*.zip
+*.sha256.txt
+
+# BepInEx/game runtime files must never be committed
+/BepInEx/
+/BoplBattle_Data/
+/MonoBleedingEdge/
+/doorstop_config.ini
+/.doorstop_version
+/winhttp.dll
+/BoplBattle.exe
+/UnityPlayer.dll
+
+# Runtime output and local configuration
+*.log
+*.cfg
+*.user
+*.suo
+/.vs/
+/.idea/
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*~
