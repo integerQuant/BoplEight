@@ -2,6 +2,10 @@
 
 All notable BoplEight changes are documented here.
 
+## 1.0.7 - 2026-07-23
+
+- Fixed character-selection layout using an already-animated remote position, which placed Click to Join above the screen.
+
 ## 1.0.6 - 2026-07-22
 
 - Fixed Click to Join remaining off-screen under either Unity component initialization order.

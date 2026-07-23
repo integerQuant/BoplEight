@@ -34,6 +34,13 @@ namespace BoplEight.Ui
             return visualBaseline + (rootPosition - visualBaseline) * Scale;
         }
 
+        internal static float AnimationRestingPosition(float currentPosition, float[] originalPositions)
+        {
+            return originalPositions == null || originalPositions.Length == 0
+                ? currentPosition
+                : originalPositions[0];
+        }
+
         internal static float FittedAnimationBoundary(float boundary, float restingPosition)
         {
             return restingPosition + (boundary - restingPosition) / Scale;

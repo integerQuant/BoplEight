@@ -103,6 +103,20 @@ namespace BoplEight.Tests
             Assert.Equal(remoteVisualBaseline, fittedRoot + fittedChildOffset, "Scaling the local selector root must keep its offset ready card aligned with remote cards.");
         }
 
+        public static void RosterLayoutUsesStoredRestingPositionAfterAnimationAwake()
+        {
+            const float localRoot = -51f;
+            const float currentHiddenRemotePosition = 3000f;
+            const float storedRemoteRestingPosition = -610f;
+            float baseline = RosterLayout.AnimationRestingPosition(
+                currentHiddenRemotePosition,
+                new float[] { storedRemoteRestingPosition });
+            float fittedRoot = RosterLayout.FittedRootPosition(localRoot, baseline);
+
+            Assert.Equal(storedRemoteRestingPosition, baseline, "Layout must not use the remote card's animated hidden position as its visual baseline.");
+            Assert.True(System.Math.Abs(fittedRoot - -386.4f) < 0.01f, "The local card must remain on-screen after remote animations initialize.");
+        }
+
         public static void RosterLayoutExpandsAnimationTravelForScaledCards()
         {
             float fitted = RosterLayout.FittedAnimationBoundary(3000f, 0f);

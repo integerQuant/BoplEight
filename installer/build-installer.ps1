@@ -5,7 +5,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$installerVersion = "1.0.6"
+$installerVersion = "1.0.7"
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $installerRoot = $PSScriptRoot
 $helpers = Join-Path $projectRoot "scripts\BuildHelpers.ps1"

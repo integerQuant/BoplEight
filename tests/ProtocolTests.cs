@@ -38,6 +38,7 @@ namespace BoplEight.Tests
                 RuntimeModelTests.RosterLayoutFitsEightAbilitySelectorsAcrossVanillaWidth,
                 RuntimeModelTests.RosterLayoutPreservesPrefabScaleWhenFittingEightColumns,
                 RuntimeModelTests.RosterLayoutKeepsOffsetReadyCardOnVisualBaseline,
+                RuntimeModelTests.RosterLayoutUsesStoredRestingPositionAfterAnimationAwake,
                 RuntimeModelTests.RosterLayoutExpandsAnimationTravelForScaledCards,
                 RuntimeModelTests.RosterLayoutStartsScaledControlsAtTheFittedBoundary,
                 RuntimeModelTests.RosterLayoutPreservesEnteringJoinControl,

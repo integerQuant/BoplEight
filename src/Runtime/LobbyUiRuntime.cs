@@ -19,6 +19,7 @@ namespace BoplEight.Runtime
         private static readonly FieldInfo AutoCallAnimateInOnStartField = AccessTools.Field(typeof(AnimateInOutUI), "autoCallAnimateInOnStart");
         private static readonly FieldInfo AnimatingInField = AccessTools.Field(typeof(AnimateInOutUI), "animatingIn");
         private static readonly FieldInfo TimeSinceAnimateInField = AccessTools.Field(typeof(AnimateInOutUI), "timeSinceAnimateIn");
+        private static readonly FieldInfo RemoteCardAnimationField = AccessTools.Field(typeof(CSBox_online), "animateInOut");
         private static readonly HashSet<int> ExpandedAnimationTravel = new HashSet<int>();
 
         private static float[] GetEightColumnCenters(Vector2[] vanillaPositions)
@@ -162,6 +163,7 @@ namespace BoplEight.Runtime
         {
             if (handler == null
                 || handler.characterSelectBox == null
+                || (int)handler.characterSelectBox.menuState != 0
                 || handler.characterSelectBox.animateJoin == null
                 || AnimatedTransformsField == null
                 || OriginalHeightsField == null
@@ -240,7 +242,18 @@ namespace BoplEight.Runtime
             }
 
             float[] slotCenters = GetEightColumnCenters(basePositions);
-            float localRootY = RosterLayout.FittedRootPosition(basePositions[0].y, basePositions[1].y);
+            float remoteVisualBaseline = basePositions[1].y;
+            AnimateInOutUI remoteCardAnimation = RemoteCardAnimationField == null
+                ? null
+                : (AnimateInOutUI)RemoteCardAnimationField.GetValue(originalBoxes[0]);
+            if (OriginalHeightsField != null && remoteCardAnimation != null)
+            {
+                remoteVisualBaseline = RosterLayout.AnimationRestingPosition(
+                    remoteVisualBaseline,
+                    (float[])OriginalHeightsField.GetValue(remoteCardAnimation));
+            }
+
+            float localRootY = RosterLayout.FittedRootPosition(basePositions[0].y, remoteVisualBaseline);
             localRect.anchoredPosition = new Vector2(slotCenters[0], localRootY);
             FitScale(localRect);
             ExpandCharacterAnimationTravel(localRect);
