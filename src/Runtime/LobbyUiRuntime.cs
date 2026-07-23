@@ -107,7 +107,7 @@ namespace BoplEight.Runtime
 
                 StartHeightField.SetValue(
                     animation,
-                    RosterLayout.FittedAnimationBoundary(
+                    RosterLayout.InitialAnimationPosition(
                         startHeight,
                         startHeight >= minimumRestingPosition ? minimumRestingPosition : maximumRestingPosition));
                 EndHeightField.SetValue(
@@ -115,6 +115,36 @@ namespace BoplEight.Runtime
                     RosterLayout.FittedAnimationBoundary(
                         endHeight,
                         endHeight >= minimumRestingPosition ? minimumRestingPosition : maximumRestingPosition));
+
+                float fittedStartHeight = (float)StartHeightField.GetValue(animation);
+                for (var transformIndex = 0; transformIndex < transforms.Length; transformIndex++)
+                {
+                    RectTransform target = transforms[transformIndex];
+                    if (target != null && target != cardRoot && target.IsChildOf(cardRoot))
+                    {
+                        target.anchoredPosition = new Vector2(target.anchoredPosition.x, fittedStartHeight);
+                    }
+                }
+            }
+        }
+
+        private static void CopyAnimationBaselines(Transform sourceRoot, Transform cloneRoot)
+        {
+            if (OriginalHeightsField == null)
+            {
+                return;
+            }
+
+            AnimateInOutUI[] sourceAnimations = sourceRoot.GetComponentsInChildren<AnimateInOutUI>(true);
+            AnimateInOutUI[] cloneAnimations = cloneRoot.GetComponentsInChildren<AnimateInOutUI>(true);
+            int count = Mathf.Min(sourceAnimations.Length, cloneAnimations.Length);
+            for (var index = 0; index < count; index++)
+            {
+                var originalHeights = (float[])OriginalHeightsField.GetValue(sourceAnimations[index]);
+                if (originalHeights != null)
+                {
+                    OriginalHeightsField.SetValue(cloneAnimations[index], (float[])originalHeights.Clone());
+                }
             }
         }
 
@@ -184,6 +214,7 @@ namespace BoplEight.Runtime
             {
                 CSBox_online source = originalBoxes[(slot - 4) % originalBoxes.Length];
                 CSBox_online clone = UnityEngine.Object.Instantiate(source, source.transform.parent);
+                CopyAnimationBaselines(source.transform, clone.transform);
                 clone.gameObject.SetActive(false);
 
                 clone.name = "BoplEight Remote Slot " + (slot + 1);
@@ -381,6 +412,11 @@ namespace BoplEight.Runtime
                 ExpandedAnimationTravel.Clear();
             }
 
+        }
+
+        [HarmonyPatch(typeof(CharacterSelectHandler_online), "Start")]
+        private static class CharacterSelectStartPatch
+        {
             private static void Postfix(CharacterSelectHandler_online __instance)
             {
                 ExtendCharacterSelection(__instance);

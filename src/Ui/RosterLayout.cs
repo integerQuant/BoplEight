@@ -39,6 +39,11 @@ namespace BoplEight.Ui
             return restingPosition + (boundary - restingPosition) / Scale;
         }
 
+        internal static float InitialAnimationPosition(float startBoundary, float restingPosition)
+        {
+            return FittedAnimationBoundary(startBoundary, restingPosition);
+        }
+
         internal static float FittedRoundSummaryDelaySpacing(float vanillaSpacing, int playerCount)
         {
             return playerCount <= 4

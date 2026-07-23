@@ -110,6 +110,13 @@ namespace BoplEight.Tests
             Assert.True(System.Math.Abs(fitted - 7500f) < 0.01f, "Scaled character cards must retain the original screen-space animation travel.");
         }
 
+        public static void RosterLayoutStartsScaledControlsAtTheFittedBoundary()
+        {
+            float initialPosition = RosterLayout.InitialAnimationPosition(3000f, 0f);
+
+            Assert.True(System.Math.Abs(initialPosition - 7500f) < 0.01f, "Controls hidden on first lobby load must use the fitted off-screen boundary before their first animation.");
+        }
+
         public static void RosterLayoutKeepsScorePortraitsCompact()
         {
             const float vanillaSeparation = 230f;

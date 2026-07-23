@@ -2,6 +2,10 @@
 
 All notable BoplEight changes are documented here.
 
+## 1.0.4 - 2026-07-22
+
+- Fixed the initial lobby showing an uninitialized team/item selector template until the local player navigated the menu.
+
 ## 1.0.3 - 2026-07-22
 
 - Restored fully hidden local and remote character-card states while retaining the compact eight-column layout.
