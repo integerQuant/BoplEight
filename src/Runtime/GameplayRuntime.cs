@@ -16,7 +16,6 @@ namespace BoplEight.Runtime
         private static readonly FieldInfo TeleportPlayerBufferField = AccessTools.Field(typeof(TeleportIndicator), "playerObjectsBuffer");
         private static readonly FieldInfo TeleportIndicatorBufferField = AccessTools.Field(typeof(TeleportIndicator), "indicatorObjectsBuffer");
         private static readonly FieldInfo MagnetHitBufferField = AccessTools.Field(typeof(MagnetGun), "hitBuffer");
-        private static readonly Dictionary<int, float> AbilitySelectorSeparations = new Dictionary<int, float>();
         private const int ExpandedPhysicsHitCapacity = 256;
 
         private static Image[] ExtendWinnerImages(Image[] images, int capacity, string namePrefix)
@@ -307,42 +306,30 @@ namespace BoplEight.Runtime
         [HarmonyPatch(typeof(HandleAbilitySelectUI), "Init")]
         private static class HandleAbilitySelectUiInitPatch
         {
-            private static void Prefix(HandleAbilitySelectUI __instance, ref float ___Separation)
+            private static void Prefix(ref float ___Separation, out float __state)
             {
+                __state = ___Separation;
                 int playerCount = PlayerHandler.Get().NumberOfPlayers();
                 if (BoplEightSession.ActiveRoster != null && playerCount > 4)
                 {
-                    int instanceId = __instance.GetInstanceID();
-                    float originalSeparation;
-                    if (!AbilitySelectorSeparations.TryGetValue(instanceId, out originalSeparation))
-                    {
-                        originalSeparation = ___Separation;
-                        AbilitySelectorSeparations[instanceId] = originalSeparation;
-                    }
-
-                    ___Separation = originalSeparation;
+                    ___Separation = RosterLayout.FittedSeparation(___Separation, playerCount);
                 }
             }
 
-            private static void Postfix(HandleAbilitySelectUI __instance, AbilitySelectCircle[] ___Selectors, float ___Separation)
+            private static void Postfix(AbilitySelectCircle[] ___Selectors, ref float ___Separation, float __state)
             {
+                ___Separation = __state;
                 if (BoplEightSession.ActiveRoster == null || ___Selectors == null || ___Selectors.Length <= 4)
                 {
                     return;
                 }
 
-                const int columns = 4;
                 for (var index = 0; index < ___Selectors.Length; index++)
                 {
-                    int row = index / columns;
-                    int column = index % columns;
-                    int rowStart = row * columns;
-                    int rowCount = Math.Min(columns, ___Selectors.Length - rowStart);
-                    float x = (column - (rowCount - 1) * 0.5f) * ___Separation * 0.76f;
-                    float rowSpacing = RosterLayout.RowSpacing(___Selectors[index].trans.rect.height, 0f);
-                    float y = RosterLayout.RowCenter(rowSpacing, row);
-                    ___Selectors[index].trans.anchoredPosition = new Vector2(x, y);
-                    ___Selectors[index].trans.localScale = Vector3.one * RosterLayout.Scale;
+                    Vector3 scale = ___Selectors[index].trans.localScale;
+                    scale.x = RosterLayout.FittedScale(scale.x);
+                    scale.y = RosterLayout.FittedScale(scale.y);
+                    ___Selectors[index].trans.localScale = scale;
                 }
             }
         }

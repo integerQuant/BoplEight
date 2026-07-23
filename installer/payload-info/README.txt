@@ -1,4 +1,4 @@
-BoplEight 1.0.1
+BoplEight 1.0.2
 
 This folder was installed by BoplEight Setup.
 

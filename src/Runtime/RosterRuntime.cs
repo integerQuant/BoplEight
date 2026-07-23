@@ -161,8 +161,8 @@ namespace BoplEight.Runtime
             players[0] = new PlayerDescriptor(
                 0,
                 (ulong)SteamClient.SteamId,
-                CheckedPaletteIndex(hostPlayer.color, "host player color"),
-                CheckedPaletteIndex(hostPlayer.team, "host team"),
+                CheckedPlayerColorIndex(hostPlayer.color, "host player color"),
+                CheckedTeamIndex(hostPlayer.team, "host team"),
                 hostPlayer.usesKeyboardMouse,
                 new byte[] { (byte)hostPlayer.ability0, (byte)hostPlayer.ability1, (byte)hostPlayer.ability2 });
 
@@ -174,8 +174,8 @@ namespace BoplEight.Runtime
                 players[index + 1] = new PlayerDescriptor(
                     slot,
                     (ulong)connection.id,
-                    CheckedPaletteIndex(connection.lobby_color, "remote player color"),
-                    CheckedPaletteIndex(connection.lobby_team, "remote team"),
+                    CheckedPlayerColorIndex(connection.lobby_color, "remote player color"),
+                    CheckedTeamIndex(connection.lobby_team, "remote team"),
                     connection.lobby_usesKeyboardAndMouse,
                     new byte[] { connection.lobby_ability1, connection.lobby_ability2, connection.lobby_ability3 });
 
@@ -357,7 +357,7 @@ namespace BoplEight.Runtime
             }
 
             int colorCount = handler == null || handler.playerColors == null
-                ? ProtocolConstants.MaximumPlayers
+                ? ProtocolConstants.PlayerColorCount
                 : handler.playerColors.Length;
             NamedSpriteList abilityIcons = SteamManager.instance.abilityIcons;
             int abilityIconCount = abilityIcons == null || abilityIcons.sprites == null ? 0 : abilityIcons.sprites.Count;
@@ -413,7 +413,17 @@ namespace BoplEight.Runtime
             return true;
         }
 
-        private static byte CheckedPaletteIndex(int value, string label)
+        private static byte CheckedPlayerColorIndex(int value, string label)
+        {
+            if (value < 0 || value >= ProtocolConstants.PlayerColorCount)
+            {
+                throw new InvalidOperationException("The " + label + " must be between 0 and 11.");
+            }
+
+            return (byte)value;
+        }
+
+        private static byte CheckedTeamIndex(int value, string label)
         {
             if (value < 0 || value >= ProtocolConstants.MaximumPlayers)
             {

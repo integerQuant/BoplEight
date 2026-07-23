@@ -1,5 +1,5 @@
-using System;
 using System.Collections.Generic;
+using BoplEight.Protocol;
 using BoplEight.Ui;
 using HarmonyLib;
 using UnityEngine;
@@ -10,15 +10,40 @@ namespace BoplEight.Runtime
     internal static class LobbyUiRuntime
     {
         private const int RemotePlayerCapacity = 7;
-        private const float MinimumLobbyRowSpacing = 120f;
 
-        private static float GetLobbyRowSpacing(RectTransform fallbackRect)
+        private static float[] GetEightColumnCenters(Vector2[] vanillaPositions)
         {
-            CharacterSelectHandler_online handler = UnityEngine.Object.FindObjectOfType<CharacterSelectHandler_online>();
-            RectTransform selectionRect = handler == null || handler.characterSelectBox == null
-                ? fallbackRect
-                : handler.characterSelectBox.GetComponent<RectTransform>();
-            return RosterLayout.RowSpacing(selectionRect.rect.height, MinimumLobbyRowSpacing);
+            var centers = new float[ProtocolConstants.MaximumPlayers];
+            for (var index = 0; index < centers.Length; index++)
+            {
+                centers[index] = RosterLayout.ColumnCenter(
+                    vanillaPositions[0].x,
+                    vanillaPositions[vanillaPositions.Length - 1].x,
+                    index,
+                    centers.Length);
+            }
+
+            return centers;
+        }
+
+        private static void FitScale(RectTransform rect)
+        {
+            Vector3 scale = rect.localScale;
+            scale.x = RosterLayout.FittedScale(scale.x);
+            scale.y = RosterLayout.FittedScale(scale.y);
+            rect.localScale = scale;
+        }
+
+        private static void AssignUniqueAvatarMaterial(SteamFrameButton square, string name)
+        {
+            if (square == null || square.image == null || square.image.material == null)
+            {
+                return;
+            }
+
+            Material material = UnityEngine.Object.Instantiate(square.image.material);
+            material.name = name;
+            square.image.material = material;
         }
 
         internal static void ExtendCharacterSelection(CharacterSelectHandler_online handler)
@@ -56,24 +81,23 @@ namespace BoplEight.Runtime
                 basePositions[index + 1] = originalBoxes[index].GetComponent<RectTransform>().anchoredPosition;
             }
 
-            float rowSpacing = RosterLayout.RowSpacing(localRect.rect.height, MinimumLobbyRowSpacing);
-            Vector2 firstRowOffset = Vector2.up * (rowSpacing * 0.5f);
-            Vector2 secondRowOffset = Vector2.down * (rowSpacing * 0.5f);
-            localRect.anchoredPosition = basePositions[0] + firstRowOffset;
-            localRect.localScale *= RosterLayout.Scale;
+            float[] slotCenters = GetEightColumnCenters(basePositions);
+            float localRootY = RosterLayout.FittedRootPosition(basePositions[0].y, basePositions[1].y);
+            localRect.anchoredPosition = new Vector2(slotCenters[0], localRootY);
+            FitScale(localRect);
 
             var boxes = new List<CSBox_online>(RemotePlayerCapacity);
             for (var index = 0; index < originalBoxes.Length; index++)
             {
                 RectTransform boxRect = originalBoxes[index].GetComponent<RectTransform>();
-                boxRect.anchoredPosition = basePositions[index + 1] + firstRowOffset;
-                boxRect.localScale *= RosterLayout.Scale;
+                boxRect.anchoredPosition = new Vector2(slotCenters[index + 1], basePositions[index + 1].y);
+                FitScale(boxRect);
                 boxes.Add(originalBoxes[index]);
             }
 
-            for (var column = 0; column < 4; column++)
+            for (var slot = 4; slot < ProtocolConstants.MaximumPlayers; slot++)
             {
-                CSBox_online source = originalBoxes[Math.Min(column, originalBoxes.Length - 1)];
+                CSBox_online source = originalBoxes[(slot - 4) % originalBoxes.Length];
                 bool sourceWasActive = source.gameObject.activeSelf;
                 CSBox_online clone;
                 try
@@ -86,11 +110,12 @@ namespace BoplEight.Runtime
                     source.gameObject.SetActive(sourceWasActive);
                 }
 
-                clone.name = "BoplEight Remote Slot " + (column + 5);
+                clone.name = "BoplEight Remote Slot " + (slot + 1);
                 clone.connectedPlayer = null;
                 clone.isVisible = false;
                 RectTransform cloneRect = clone.GetComponent<RectTransform>();
-                cloneRect.anchoredPosition = basePositions[column] + secondRowOffset;
+                int sourceIndex = (slot - 4) % originalBoxes.Length;
+                cloneRect.anchoredPosition = new Vector2(slotCenters[slot], basePositions[sourceIndex + 1].y);
                 cloneRect.localScale = source.GetComponent<RectTransform>().localScale;
                 boxes.Add(clone);
             }
@@ -101,18 +126,18 @@ namespace BoplEight.Runtime
             {
                 RectTransform circleRect = originalCircles[index].rectTransform;
                 circleOffsets[index] = circleRect.anchoredPosition - basePositions[index + 1];
-                circleRect.anchoredPosition = basePositions[index + 1] + firstRowOffset + circleOffsets[index];
-                circleRect.localScale *= RosterLayout.Scale;
+                circleRect.anchoredPosition = new Vector2(slotCenters[index + 1], basePositions[index + 1].y) + circleOffsets[index];
+                FitScale(circleRect);
                 circles.Add(originalCircles[index]);
             }
 
-            for (var column = 0; column < 4; column++)
+            for (var slot = 4; slot < ProtocolConstants.MaximumPlayers; slot++)
             {
-                int sourceIndex = Math.Min(column, originalCircles.Length - 1);
+                int sourceIndex = (slot - 4) % originalCircles.Length;
                 Image source = originalCircles[sourceIndex];
                 Image clone = UnityEngine.Object.Instantiate(source, source.transform.parent);
-                clone.name = "BoplEight Loading Slot " + (column + 5);
-                clone.rectTransform.anchoredPosition = basePositions[column] + secondRowOffset + circleOffsets[sourceIndex];
+                clone.name = "BoplEight Loading Slot " + (slot + 1);
+                clone.rectTransform.anchoredPosition = new Vector2(slotCenters[slot], basePositions[sourceIndex + 1].y) + circleOffsets[sourceIndex];
                 clone.rectTransform.localScale = source.rectTransform.localScale;
                 clone.enabled = false;
                 circles.Add(clone);
@@ -145,51 +170,50 @@ namespace BoplEight.Runtime
                 basePositions[index + 1] = frame.squares[index].GetComponent<RectTransform>().anchoredPosition;
             }
 
-            float rowSpacing = GetLobbyRowSpacing(selfRect);
-            Vector2 firstRowOffset = Vector2.up * (rowSpacing * 0.5f);
-            Vector2 secondRowOffset = Vector2.down * (rowSpacing * 0.5f);
-            selfRect.anchoredPosition = basePositions[0] + firstRowOffset;
-            selfRect.localScale *= RosterLayout.Scale;
-            for (var index = 0; index < frame.squares.Count; index++)
+            float[] slotCenters = GetEightColumnCenters(basePositions);
+            SteamFrameButton[] originalSquares = frame.squares.ToArray();
+            Image[] originalCircles = frame.lookingForPlayersCircles;
+            selfRect.anchoredPosition = new Vector2(slotCenters[0], basePositions[0].y);
+            FitScale(selfRect);
+            AssignUniqueAvatarMaterial(frame.SelfSquare, "BoplEight Steam Avatar Material 1");
+            for (var index = 0; index < originalSquares.Length; index++)
             {
-                RectTransform squareRect = frame.squares[index].GetComponent<RectTransform>();
-                squareRect.anchoredPosition = basePositions[index + 1] + firstRowOffset;
-                squareRect.localScale *= RosterLayout.Scale;
+                RectTransform squareRect = originalSquares[index].GetComponent<RectTransform>();
+                squareRect.anchoredPosition = new Vector2(slotCenters[index + 1], basePositions[index + 1].y);
+                FitScale(squareRect);
+                AssignUniqueAvatarMaterial(originalSquares[index], "BoplEight Steam Avatar Material " + (index + 2));
             }
 
-            var circles = new List<Image>(frame.lookingForPlayersCircles);
+            var circles = new List<Image>(originalCircles);
             var circleOffsets = new Vector2[3];
-            for (var index = 0; index < frame.lookingForPlayersCircles.Length; index++)
+            for (var index = 0; index < originalCircles.Length; index++)
             {
-                RectTransform circleRect = frame.lookingForPlayersCircles[index].rectTransform;
+                RectTransform circleRect = originalCircles[index].rectTransform;
                 circleOffsets[index] = circleRect.anchoredPosition - basePositions[index + 1];
-                circleRect.anchoredPosition = basePositions[index + 1] + firstRowOffset + circleOffsets[index];
-                circleRect.localScale *= RosterLayout.Scale;
+                circleRect.anchoredPosition = new Vector2(slotCenters[index + 1], basePositions[index + 1].y) + circleOffsets[index];
+                FitScale(circleRect);
             }
 
-            for (var column = 0; column < 4; column++)
+            for (var slot = 4; slot < ProtocolConstants.MaximumPlayers; slot++)
             {
-                int sourceIndex = Math.Min(column, frame.squares.Count - 1);
-                SteamFrameButton source = frame.squares[sourceIndex];
+                int sourceIndex = (slot - 4) % originalSquares.Length;
+                SteamFrameButton source = originalSquares[sourceIndex];
                 SteamFrameButton clone = UnityEngine.Object.Instantiate(source, source.transform.parent);
-                clone.name = "BoplEight Steam Slot " + (column + 5);
+                clone.name = "BoplEight Steam Slot " + (slot + 1);
                 RectTransform cloneRect = clone.GetComponent<RectTransform>();
-                cloneRect.anchoredPosition = basePositions[column] + secondRowOffset;
+                cloneRect.anchoredPosition = new Vector2(slotCenters[slot], basePositions[sourceIndex + 1].y);
                 cloneRect.localScale = source.GetComponent<RectTransform>().localScale;
-                if (source.image.material != null)
-                {
-                    clone.image.material = UnityEngine.Object.Instantiate(source.image.material);
-                }
+                AssignUniqueAvatarMaterial(clone, "BoplEight Steam Avatar Material " + (slot + 1));
 
-                int connectedPlayerIndex = frame.squares.Count;
+                int connectedPlayerIndex = slot - 1;
                 clone.button.onClick = new Button.ButtonClickedEvent();
                 clone.button.onClick.AddListener(delegate { frame.ClickKickPlayer(connectedPlayerIndex); });
                 frame.squares.Add(clone);
 
-                Image circleSource = frame.lookingForPlayersCircles[Math.Min(column, 2)];
+                Image circleSource = originalCircles[sourceIndex];
                 Image circleClone = UnityEngine.Object.Instantiate(circleSource, circleSource.transform.parent);
-                circleClone.name = "BoplEight Steam Loading Slot " + (column + 5);
-                circleClone.rectTransform.anchoredPosition = basePositions[column] + secondRowOffset + circleOffsets[Math.Min(column, 2)];
+                circleClone.name = "BoplEight Steam Loading Slot " + (slot + 1);
+                circleClone.rectTransform.anchoredPosition = new Vector2(slotCenters[slot], basePositions[sourceIndex + 1].y) + circleOffsets[sourceIndex];
                 circleClone.rectTransform.localScale = circleSource.rectTransform.localScale;
                 circles.Add(circleClone);
             }
@@ -199,6 +223,70 @@ namespace BoplEight.Runtime
             for (var index = 0; index < currentSquareColors.Length; index++)
             {
                 currentSquareColors[index] = -1;
+            }
+
+            BoplEightPlugin.Log.LogInfo("Expanded the Steam avatar overlay from four to eight visible players.");
+        }
+
+        internal static void RefreshSteamAvatars(SteamFrame frame)
+        {
+            if (frame == null
+                || SteamManager.instance == null
+                || frame.squares == null
+                || frame.squares.Count < RemotePlayerCapacity)
+            {
+                return;
+            }
+
+            List<SteamConnection> connections = SteamManager.instance.connectedPlayers;
+            for (var squareIndex = 0; squareIndex < frame.squares.Count; squareIndex++)
+            {
+                bool hasAvatar = squareIndex < connections.Count
+                    && connections[squareIndex].hasAvatar
+                    && connections[squareIndex].avatar != null;
+                int connectionIndex = AvatarSlotMapping.ConnectionIndexForSquare(
+                    squareIndex,
+                    connections.Count,
+                    hasAvatar);
+                SteamFrameButton square = frame.squares[squareIndex];
+                bool visible = connectionIndex >= 0;
+                square.gameObject.SetActive(visible);
+                if (visible)
+                {
+                    SteamConnection connection = connections[connectionIndex];
+                    Material material = square.image.material;
+                    if (material != null)
+                    {
+                        material.SetTexture(
+                            "_ProfileTexture",
+                            Settings.Get().Hide == 2 ? Texture2D.blackTexture : connection.avatar);
+                    }
+
+                    Material renderedMaterial = square.image.materialForRendering;
+                    if (renderedMaterial != null && renderedMaterial.HasProperty("_Blue"))
+                    {
+                        Color color = Color.white;
+                        if (connection.lobby_isReady
+                            && connection.lobby_color >= 0
+                            && frame.playerColors != null
+                            && connection.lobby_color < frame.playerColors.Length)
+                        {
+                            Material playerMaterial = frame.playerColors[connection.lobby_color].playerMaterial;
+                            if (playerMaterial != null && playerMaterial.HasProperty("_ShadowColor"))
+                            {
+                                color = playerMaterial.GetColor("_ShadowColor");
+                            }
+                        }
+
+                        renderedMaterial.SetColor("_Blue", color);
+                    }
+                }
+
+                if (frame.lookingForPlayersCircles != null
+                    && squareIndex < frame.lookingForPlayersCircles.Length)
+                {
+                    frame.lookingForPlayersCircles[squareIndex].enabled = !visible && SteamManager.currentlyLookingForPlayers;
+                }
             }
         }
 
@@ -222,6 +310,15 @@ namespace BoplEight.Runtime
             private static void Prefix(SteamFrame __instance, ref int[] ___currentSquareColors)
             {
                 ExtendSteamFrame(__instance, ref ___currentSquareColors);
+            }
+        }
+
+        [HarmonyPatch(typeof(SteamFrame), "Update")]
+        private static class SteamFrameUpdatePatch
+        {
+            private static void Postfix(SteamFrame __instance)
+            {
+                RefreshSteamAvatars(__instance);
             }
         }
 

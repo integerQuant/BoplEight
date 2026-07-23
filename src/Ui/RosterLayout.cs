@@ -4,17 +4,33 @@ namespace BoplEight.Ui
 {
     internal static class RosterLayout
     {
-        internal const float Scale = 0.72f;
-        internal const float Gutter = 12f;
+        internal const float Scale = 0.4f;
 
-        internal static float RowSpacing(float unscaledHeight, float minimumHeight)
+        internal static float ColumnCenter(float firstCenter, float lastCenter, int index, int count)
         {
-            return Math.Max(minimumHeight, unscaledHeight * Scale) + Gutter;
+            if (count <= 1)
+            {
+                return (firstCenter + lastCenter) * 0.5f;
+            }
+
+            return firstCenter + (lastCenter - firstCenter) * index / (count - 1);
         }
 
-        internal static float RowCenter(float rowSpacing, int row)
+        internal static float FittedSeparation(float vanillaSeparation, int playerCount)
         {
-            return (row == 0 ? 0.5f : -0.5f) * rowSpacing;
+            return playerCount <= 4
+                ? vanillaSeparation
+                : vanillaSeparation * 3f / (playerCount - 1);
+        }
+
+        internal static float FittedScale(float originalScale)
+        {
+            return originalScale * Scale;
+        }
+
+        internal static float FittedRootPosition(float rootPosition, float visualBaseline)
+        {
+            return visualBaseline + (rootPosition - visualBaseline) * Scale;
         }
 
         internal static bool IsExpandedRemoteSlot(string name)

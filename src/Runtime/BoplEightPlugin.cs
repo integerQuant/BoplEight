@@ -23,7 +23,7 @@ namespace BoplEight.Runtime
     {
         public const string PluginGuid = "io.opencode.bopleight";
         public const string PluginName = "BoplEight";
-        public const string PluginVersion = "1.0.1";
+        public const string PluginVersion = "1.0.2";
 
         // Patches are only applied to the game assembly inspected for this release.
         private const string SupportedGameAssemblySha256 = "06A154AF64AD962E534587058219FB94216C5CE53605BB9AF5F77CB433A4AE07";
@@ -1054,32 +1054,7 @@ namespace BoplEight.Runtime
                 || SteamManager.instance.abilityIcons.sprites == null
                 ? 0
                 : SteamManager.instance.abilityIcons.sprites.Count;
-            if (size == NetworkTools.LobbyStateUpdateSize)
-            {
-                return packet[0] < ProtocolConstants.MaximumPlayers
-                    && packet[1] < ProtocolConstants.MaximumPlayers
-                    && packet[2] <= 1;
-            }
-
-            if (size == NetworkTools.SimpleLobbyReadySize)
-            {
-                return packet[0] < abilityCount
-                    && packet[1] < abilityCount
-                    && packet[2] < abilityCount;
-            }
-
-            if (size == NetworkTools.LobbyReadyPacketSize)
-            {
-                return packet[0] < ProtocolConstants.MaximumPlayers
-                    && packet[1] < ProtocolConstants.MaximumPlayers
-                    && packet[2] < abilityCount
-                    && packet[3] < abilityCount
-                    && packet[4] < abilityCount
-                    && packet[5] <= 1
-                    && packet[6] <= 1;
-            }
-
-            return packet[0] >= 1 && packet[0] <= ProtocolConstants.AbilityCount;
+            return VanillaLobbyPacketValidator.IsValid(packet, abilityCount);
         }
     }
 

@@ -2,6 +2,13 @@
 
 All notable BoplEight changes are documented here.
 
+## 1.0.2 - 2026-07-22
+
+- Fixed ready and selection updates being rejected when players used valid cosmetic colors 8 through 11.
+- Fixed high-color rosters failing during initial match start and next-level validation.
+- Fixed asynchronous Steam avatars disappearing when an earlier player's avatar was still loading.
+- Changed character, avatar, and ability selectors to a fitted eight-column layout.
+
 ## 1.0.1 - 2026-07-22
 
 - Fixed Steam friend invites being rejected before their BoplEight lobby metadata was downloaded.

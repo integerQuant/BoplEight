@@ -10,7 +10,7 @@ namespace BoplEight.Installer
 {
     internal static class InstallerCore
     {
-        internal const string InstallerVersion = "1.0.1";
+        internal const string InstallerVersion = "1.0.2";
         internal const string SupportedAssemblySha256 = "06A154AF64AD962E534587058219FB94216C5CE53605BB9AF5F77CB433A4AE07";
         internal const string InstallMarkerRelativePath = "BepInEx\\BoplEight\\installed.txt";
         internal const string PluginRelativePath = "BepInEx\\plugins\\BoplEight.dll";

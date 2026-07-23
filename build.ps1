@@ -32,7 +32,8 @@ $protocolSources = @(
     (Join-Path $projectRoot "src\Lobby\PendingLobbyJoinState.cs"),
     (Join-Path $projectRoot "src\Colors\TeamPalette.cs"),
     (Join-Path $projectRoot "src\Match\RosterModel.cs"),
-    (Join-Path $projectRoot "src\Ui\RosterLayout.cs")
+    (Join-Path $projectRoot "src\Ui\RosterLayout.cs"),
+    (Join-Path $projectRoot "src\Ui\AvatarSlotMapping.cs")
 )
 
 $testSources = $protocolSources + @(

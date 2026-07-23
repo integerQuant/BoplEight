@@ -11,6 +11,7 @@ namespace BoplEight.Protocol
         public const byte Version = 3;
         public const byte MinimumPlayers = 2;
         public const byte MaximumPlayers = 8;
+        public const byte PlayerColorCount = 12;
         public const byte AbilityCount = 3;
         public const ulong CompatibilityToken = 0x42504C3845494748UL;
     }
@@ -53,9 +54,9 @@ namespace BoplEight.Protocol
                 throw new ArgumentException("Steam ID must not be zero.", "steamId");
             }
 
-            if (playerColorId >= ProtocolConstants.MaximumPlayers)
+            if (playerColorId >= ProtocolConstants.PlayerColorCount)
             {
-                throw new ArgumentException("Player color IDs must be between 0 and 7.", "playerColorId");
+                throw new ArgumentException("Player color IDs must be between 0 and 11.", "playerColorId");
             }
 
             if (teamId >= ProtocolConstants.MaximumPlayers)
@@ -426,6 +427,49 @@ namespace BoplEight.Protocol
             {
                 throw new ProtocolException("Packet contains trailing bytes.");
             }
+        }
+    }
+
+    public static class VanillaLobbyPacketValidator
+    {
+        public static bool IsValid(byte[] packet, int abilityCount)
+        {
+            if (packet == null)
+            {
+                return false;
+            }
+
+            if (packet.Length == 3)
+            {
+                return packet[0] < ProtocolConstants.PlayerColorCount
+                    && packet[1] < ProtocolConstants.MaximumPlayers
+                    && packet[2] <= 1;
+            }
+
+            if (packet.Length == 4)
+            {
+                return packet[0] < abilityCount
+                    && packet[1] < abilityCount
+                    && packet[2] < abilityCount;
+            }
+
+            if (packet.Length == 15)
+            {
+                return packet[0] < ProtocolConstants.PlayerColorCount
+                    && packet[1] < ProtocolConstants.MaximumPlayers
+                    && packet[2] < abilityCount
+                    && packet[3] < abilityCount
+                    && packet[4] < abilityCount
+                    && packet[5] <= 1
+                    && packet[6] <= 1;
+            }
+
+            if (packet.Length == 2)
+            {
+                return packet[0] >= 1 && packet[0] <= ProtocolConstants.AbilityCount;
+            }
+
+            return true;
         }
     }
 }

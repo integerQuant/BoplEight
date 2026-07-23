@@ -12,6 +12,7 @@ namespace BoplEight.Tests
                 StartRosterRoundTripsEightPlayers,
                 StartRosterCarriesDeterministicMatchSettings,
                 StartRosterPreservesSelectedColorsAndTeams,
+                StartRosterRejectsUnavailablePlayerColors,
                 StartRosterPreservesInputDeviceMetadata,
                 StartRosterRejectsInvalidPlayerCounts,
                 StartRosterRejectsDuplicateSlotsAndSteamIds,
@@ -26,12 +27,18 @@ namespace BoplEight.Tests
                 VanillaPacketsAreNotClaimedByMagicBytesAlone,
                 InvalidCustomStartPacketsAreConsumedInsteadOfFallingIntoVanillaDispatch,
                 ReservedCustomPacketsNeverFallThroughToVanillaDispatch,
+                VanillaLobbyPacketsAcceptEverySupportedPlayerColor,
+                VanillaLobbyPacketsRejectOutOfRangeSelectionFields,
                 RuntimeModelTests.RosterStateAcceptsStrictlyNewerHostRosters,
                 RuntimeModelTests.RosterStateAcceptsSequenceWraparound,
                 RuntimeModelTests.RosterStateRejectsStaleAndForeignRosters,
                 RuntimeModelTests.RosterFramesSupportSparseEightPlayerSlots,
-                RuntimeModelTests.RosterLayoutSeparatesScaledRows,
-                RuntimeModelTests.RosterLayoutUsesLobbyMinimumWithGutter,
+                RuntimeModelTests.RosterLayoutPlacesEightPlayersInUniqueColumns,
+                RuntimeModelTests.RosterLayoutKeepsPlayerFiveSeparateFromPlayerOne,
+                RuntimeModelTests.RosterLayoutFitsEightAbilitySelectorsAcrossVanillaWidth,
+                RuntimeModelTests.RosterLayoutPreservesPrefabScaleWhenFittingEightColumns,
+                RuntimeModelTests.RosterLayoutKeepsOffsetReadyCardOnVisualBaseline,
+                RuntimeModelTests.SparseAvatarReadinessPreservesConnectionSlots,
                 RuntimeModelTests.RosterLayoutIdentifiesOnlyExpandedRemoteSlots,
                 PaletteTests.ExtendedTeamPaletteProvidesFourDistinctTeamChoices,
                 MatchCompatibilityTests.LobbiesAcceptTwoThroughEightPlayers,
@@ -96,18 +103,26 @@ namespace BoplEight.Tests
                 NewMatchSettings(),
                 new PlayerDescriptor[]
                 {
-                    NewPlayer(0, 201, 7, 3, false, 1, 1, 1),
-                    NewPlayer(1, 202, 6, 1, false, 2, 2, 2),
+                    NewPlayer(0, 201, 11, 3, false, 1, 1, 1),
+                    NewPlayer(1, 202, 8, 1, false, 2, 2, 2),
                     NewPlayer(2, 203, 5, 3, false, 3, 3, 3),
                     NewPlayer(3, 204, 4, 0, false, 4, 4, 4)
                 });
 
             StartRoster decoded = PacketCodec.DecodeStartRoster(PacketCodec.EncodeStartRoster(original));
 
-            Assert.Equal((byte)7, decoded.Players[0].PlayerColorId, "Cosmetic player colors must not be reassigned.");
-            Assert.Equal((byte)6, decoded.Players[1].PlayerColorId, "Cosmetic player colors must round-trip independently of teams.");
+            Assert.Equal((byte)11, decoded.Players[0].PlayerColorId, "Every supported cosmetic player color must round-trip.");
+            Assert.Equal((byte)8, decoded.Players[1].PlayerColorId, "Cosmetic player colors must round-trip independently of roster capacity.");
             Assert.Equal((byte)3, decoded.Players[0].TeamId, "Player-selected teams must not be reassigned.");
             Assert.Equal((byte)3, decoded.Players[2].TeamId, "Multiple players may select the same team.");
+        }
+
+        private static void StartRosterRejectsUnavailablePlayerColors()
+        {
+            Assert.Throws<ArgumentException>(delegate
+            {
+                NewPlayer(0, 205, ProtocolConstants.PlayerColorCount, 0, false, 1, 2, 3);
+            }, "Player color IDs beyond the supported palette must be rejected.");
         }
 
         private static void StartRosterPreservesInputDeviceMetadata()
@@ -335,6 +350,36 @@ namespace BoplEight.Tests
 
             Assert.Equal(PacketRouteKind.RejectedBoplEightPacket, truncated.Kind, "A truncated reserved control must be consumed.");
             Assert.Equal(PacketRouteKind.RejectedBoplEightPacket, unsupported.Kind, "A reserved custom packet type must be consumed.");
+        }
+
+        private static void VanillaLobbyPacketsAcceptEverySupportedPlayerColor()
+        {
+            Assert.True(
+                VanillaLobbyPacketValidator.IsValid(new byte[] { 11, 7, 1 }, 31),
+                "Ready-state updates must accept the game's twelfth player color.");
+            Assert.True(
+                VanillaLobbyPacketValidator.IsValid(new byte[]
+                {
+                    11, 7, 30, 29, 28, 1, 1,
+                    0, 0, 0, 0, 0, 0, 0, 1
+                }, 31),
+                "Full ready packets must accept supported colors independently of the eight-player limit.");
+        }
+
+        private static void VanillaLobbyPacketsRejectOutOfRangeSelectionFields()
+        {
+            Assert.False(
+                VanillaLobbyPacketValidator.IsValid(new byte[] { ProtocolConstants.PlayerColorCount, 0, 1 }, 31),
+                "Lobby updates must reject colors outside the local palette.");
+            Assert.False(
+                VanillaLobbyPacketValidator.IsValid(new byte[] { 0, ProtocolConstants.MaximumPlayers, 1 }, 31),
+                "Lobby updates must reject teams outside the eight-team palette.");
+            Assert.False(
+                VanillaLobbyPacketValidator.IsValid(new byte[] { 0, 0, 2 }, 31),
+                "Lobby updates must reject non-boolean ready flags.");
+            Assert.False(
+                VanillaLobbyPacketValidator.IsValid(new byte[] { 0, 0, 31, 1 }, 31),
+                "Ability updates must reject unavailable abilities.");
         }
 
         private static MatchStartSettings NewMatchSettings()

@@ -50,21 +50,66 @@ namespace BoplEight.Tests
             Assert.Throws<System.ArgumentException>(delegate { frame.Set(6, 60); }, "Frames must reject inputs from slots outside their roster.");
         }
 
-        public static void RosterLayoutSeparatesScaledRows()
+        public static void RosterLayoutPlacesEightPlayersInUniqueColumns()
         {
-            const float panelHeight = 200f;
-            float spacing = RosterLayout.RowSpacing(panelHeight, 120f);
-            float scaledHeight = panelHeight * RosterLayout.Scale;
+            const float left = -420f;
+            const float right = 420f;
+            float previous = RosterLayout.ColumnCenter(left, right, 0, ProtocolConstants.MaximumPlayers);
 
-            Assert.True(spacing > scaledHeight, "Two-row selectors need a gutter between their scaled bounds.");
-            Assert.Equal(spacing, RosterLayout.RowCenter(spacing, 0) - RosterLayout.RowCenter(spacing, 1), "Row centers should be exactly one row spacing apart.");
+            for (var slot = 1; slot < ProtocolConstants.MaximumPlayers; slot++)
+            {
+                float current = RosterLayout.ColumnCenter(left, right, slot, ProtocolConstants.MaximumPlayers);
+                Assert.True(current > previous, "Every player must occupy a distinct left-to-right column.");
+                previous = current;
+            }
         }
 
-        public static void RosterLayoutUsesLobbyMinimumWithGutter()
+        public static void RosterLayoutKeepsPlayerFiveSeparateFromPlayerOne()
         {
-            float spacing = RosterLayout.RowSpacing(48f, 120f);
+            float playerOne = RosterLayout.ColumnCenter(-420f, 420f, 0, ProtocolConstants.MaximumPlayers);
+            float playerFive = RosterLayout.ColumnCenter(-420f, 420f, 4, ProtocolConstants.MaximumPlayers);
 
-            Assert.Equal(132f, spacing, "Small portrait overlays must use the selection panel minimum spacing and gutter.");
+            Assert.False(playerOne == playerFive, "Player five must not wrap onto player one's column.");
+        }
+
+        public static void RosterLayoutFitsEightAbilitySelectorsAcrossVanillaWidth()
+        {
+            const float vanillaSeparation = 200f;
+            float fitted = RosterLayout.FittedSeparation(vanillaSeparation, ProtocolConstants.MaximumPlayers);
+
+            Assert.Equal(vanillaSeparation * 3f, fitted * 7f, "Eight selectors must retain the total width of the vanilla four-selector row.");
+        }
+
+        public static void RosterLayoutPreservesPrefabScaleWhenFittingEightColumns()
+        {
+            const float originalButtonScale = 0.2843f;
+            const float unscaledButtonWidth = 64f;
+            const float originalFirstCenter = 3.5f;
+            const float originalLastCenter = 63.5f;
+            float fittedScale = RosterLayout.FittedScale(originalButtonScale);
+            float eightColumnSpacing = (originalLastCenter - originalFirstCenter) / 7f;
+
+            Assert.True(fittedScale < originalButtonScale, "Eight-column fitting must multiply the prefab scale instead of replacing it.");
+            Assert.True(unscaledButtonWidth * fittedScale < eightColumnSpacing, "Fitted Steam portrait hitboxes must not overlap adjacent columns.");
+        }
+
+        public static void RosterLayoutKeepsOffsetReadyCardOnVisualBaseline()
+        {
+            const float localRoot = -51f;
+            const float remoteVisualBaseline = -610f;
+            float fittedRoot = RosterLayout.FittedRootPosition(localRoot, remoteVisualBaseline);
+            float fittedChildOffset = (remoteVisualBaseline - localRoot) * RosterLayout.Scale;
+
+            Assert.Equal(remoteVisualBaseline, fittedRoot + fittedChildOffset, "Scaling the local selector root must keep its offset ready card aligned with remote cards.");
+        }
+
+        public static void SparseAvatarReadinessPreservesConnectionSlots()
+        {
+            var ready = new bool[] { true, false, false, true };
+
+            Assert.Equal(0, AvatarSlotMapping.ConnectionIndexForSquare(0, ready.Length, ready[0]), "The first ready avatar should remain in the first connection slot.");
+            Assert.Equal(-1, AvatarSlotMapping.ConnectionIndexForSquare(1, ready.Length, ready[1]), "An unfinished avatar must leave its own slot loading.");
+            Assert.Equal(3, AvatarSlotMapping.ConnectionIndexForSquare(3, ready.Length, ready[3]), "A later completed avatar must not disappear behind an unfinished earlier request.");
         }
 
         public static void RosterLayoutIdentifiesOnlyExpandedRemoteSlots()
