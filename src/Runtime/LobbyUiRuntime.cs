@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Reflection;
 using BoplEight.Protocol;
 using BoplEight.Ui;
 using HarmonyLib;
@@ -10,6 +11,12 @@ namespace BoplEight.Runtime
     internal static class LobbyUiRuntime
     {
         private const int RemotePlayerCapacity = 7;
+        private static readonly FieldInfo AnimatedTransformsField = AccessTools.Field(typeof(AnimateInOutUI), "animatedTransforms");
+        private static readonly FieldInfo StartHeightField = AccessTools.Field(typeof(AnimateInOutUI), "startHeight");
+        private static readonly FieldInfo EndHeightField = AccessTools.Field(typeof(AnimateInOutUI), "endHeight");
+        private static readonly FieldInfo OriginalHeightsField = AccessTools.Field(typeof(AnimateInOutUI), "originalHeights");
+        private static readonly FieldInfo HorizontalInsteadField = AccessTools.Field(typeof(AnimateInOutUI), "horizontalInstead");
+        private static readonly HashSet<int> ExpandedAnimationTravel = new HashSet<int>();
 
         private static float[] GetEightColumnCenters(Vector2[] vanillaPositions)
         {
@@ -32,6 +39,83 @@ namespace BoplEight.Runtime
             scale.x = RosterLayout.FittedScale(scale.x);
             scale.y = RosterLayout.FittedScale(scale.y);
             rect.localScale = scale;
+        }
+
+        private static void ExpandCharacterAnimationTravel(Transform cardRoot)
+        {
+            if (AnimatedTransformsField == null
+                || StartHeightField == null
+                || EndHeightField == null
+                || OriginalHeightsField == null
+                || HorizontalInsteadField == null)
+            {
+                return;
+            }
+
+            AnimateInOutUI[] animations = cardRoot.GetComponentsInChildren<AnimateInOutUI>(true);
+            for (var index = 0; index < animations.Length; index++)
+            {
+                AnimateInOutUI animation = animations[index];
+                if (animation == null
+                    || !ExpandedAnimationTravel.Add(animation.GetInstanceID())
+                    || (bool)HorizontalInsteadField.GetValue(animation))
+                {
+                    continue;
+                }
+
+                var transforms = (RectTransform[])AnimatedTransformsField.GetValue(animation);
+                if (transforms == null || transforms.Length == 0)
+                {
+                    continue;
+                }
+
+                bool movesCardRoot = false;
+                bool movesDescendant = false;
+                for (var transformIndex = 0; transformIndex < transforms.Length; transformIndex++)
+                {
+                    RectTransform target = transforms[transformIndex];
+                    if (target == cardRoot)
+                    {
+                        movesCardRoot = true;
+                    }
+                    else if (target != null && target.IsChildOf(cardRoot))
+                    {
+                        movesDescendant = true;
+                    }
+                }
+
+                if (movesCardRoot || !movesDescendant)
+                {
+                    continue;
+                }
+
+                var originalHeights = (float[])OriginalHeightsField.GetValue(animation);
+                float startHeight = (float)StartHeightField.GetValue(animation);
+                float endHeight = (float)EndHeightField.GetValue(animation);
+                float minimumRestingPosition = transforms[0].anchoredPosition.y;
+                float maximumRestingPosition = minimumRestingPosition;
+                if (originalHeights != null && originalHeights.Length > 0)
+                {
+                    minimumRestingPosition = originalHeights[0];
+                    maximumRestingPosition = originalHeights[0];
+                    for (var heightIndex = 1; heightIndex < originalHeights.Length; heightIndex++)
+                    {
+                        minimumRestingPosition = Mathf.Min(minimumRestingPosition, originalHeights[heightIndex]);
+                        maximumRestingPosition = Mathf.Max(maximumRestingPosition, originalHeights[heightIndex]);
+                    }
+                }
+
+                StartHeightField.SetValue(
+                    animation,
+                    RosterLayout.FittedAnimationBoundary(
+                        startHeight,
+                        startHeight >= minimumRestingPosition ? minimumRestingPosition : maximumRestingPosition));
+                EndHeightField.SetValue(
+                    animation,
+                    RosterLayout.FittedAnimationBoundary(
+                        endHeight,
+                        endHeight >= minimumRestingPosition ? minimumRestingPosition : maximumRestingPosition));
+            }
         }
 
         private static void AssignUniqueAvatarMaterial(SteamFrameButton square, string name)
@@ -85,6 +169,7 @@ namespace BoplEight.Runtime
             float localRootY = RosterLayout.FittedRootPosition(basePositions[0].y, basePositions[1].y);
             localRect.anchoredPosition = new Vector2(slotCenters[0], localRootY);
             FitScale(localRect);
+            ExpandCharacterAnimationTravel(localRect);
 
             var boxes = new List<CSBox_online>(RemotePlayerCapacity);
             for (var index = 0; index < originalBoxes.Length; index++)
@@ -98,17 +183,8 @@ namespace BoplEight.Runtime
             for (var slot = 4; slot < ProtocolConstants.MaximumPlayers; slot++)
             {
                 CSBox_online source = originalBoxes[(slot - 4) % originalBoxes.Length];
-                bool sourceWasActive = source.gameObject.activeSelf;
-                CSBox_online clone;
-                try
-                {
-                    source.gameObject.SetActive(false);
-                    clone = UnityEngine.Object.Instantiate(source, source.transform.parent);
-                }
-                finally
-                {
-                    source.gameObject.SetActive(sourceWasActive);
-                }
+                CSBox_online clone = UnityEngine.Object.Instantiate(source, source.transform.parent);
+                clone.gameObject.SetActive(false);
 
                 clone.name = "BoplEight Remote Slot " + (slot + 1);
                 clone.connectedPlayer = null;
@@ -117,7 +193,13 @@ namespace BoplEight.Runtime
                 int sourceIndex = (slot - 4) % originalBoxes.Length;
                 cloneRect.anchoredPosition = new Vector2(slotCenters[slot], basePositions[sourceIndex + 1].y);
                 cloneRect.localScale = source.GetComponent<RectTransform>().localScale;
+                ExpandCharacterAnimationTravel(cloneRect);
                 boxes.Add(clone);
+            }
+
+            for (var index = 0; index < originalBoxes.Length; index++)
+            {
+                ExpandCharacterAnimationTravel(originalBoxes[index].transform);
             }
 
             var circles = new List<Image>(RemotePlayerCapacity);
@@ -296,6 +378,7 @@ namespace BoplEight.Runtime
             private static void Prefix()
             {
                 BoplEightSession.Clear();
+                ExpandedAnimationTravel.Clear();
             }
 
             private static void Postfix(CharacterSelectHandler_online __instance)

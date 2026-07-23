@@ -13,13 +13,16 @@ namespace BoplEight.Runtime
     internal static class RosterRuntime
     {
         private static readonly FieldInfo NextStartGameSequenceField = AccessTools.Field(typeof(SteamManager), "nextStartGameSeq");
+        private static readonly MethodInfo CharacterStatsTransitionMethod = AccessTools.Method(typeof(CharacterStatsList), "Transition");
         private static bool suppressNextForceStart;
         private static bool abortNextLevelLoad;
+        private static ulong transitionedWinnerSplashToken;
 
         internal static void Reset()
         {
             suppressNextForceStart = false;
             abortNextLevelLoad = false;
+            transitionedWinnerSplashToken = 0;
         }
 
         internal static bool TryValidateRoster(StartRoster roster, ulong senderSteamId, out string reason)
@@ -68,6 +71,23 @@ namespace BoplEight.Runtime
             {
                 SteamManager.ForceLoadNextLevel();
             }
+        }
+
+        internal static void BeginNextLevelTransition(ulong rosterToken)
+        {
+            if (rosterToken == 0
+                || rosterToken == transitionedWinnerSplashToken
+                || GameSession.inMenus
+                || WinnerTriangleCanvas.instance == null
+                || WinnerTriangleCanvas.instance.charStatsList == null
+                || CharacterStatsTransitionMethod == null
+                || !WinnerTriangleCanvas.instance.charStatsList.isActiveAndEnabled)
+            {
+                return;
+            }
+
+            transitionedWinnerSplashToken = rosterToken;
+            CharacterStatsTransitionMethod.Invoke(WinnerTriangleCanvas.instance.charStatsList, null);
         }
 
         internal static PlayerDescriptor[] SortedPlayers(StartRoster roster)
@@ -734,6 +754,7 @@ namespace BoplEight.Runtime
                         throw new InvalidOperationException(reason);
                     }
 
+                    BeginNextLevelTransition(PacketCodec.ComputeRosterToken(roster));
                     BoplEightPlugin.Log.LogInfo("Preparing BoplEight next-level sequence " + roster.Settings.SequenceNumber + " with " + roster.Players.Length + " players.");
                 }
                 catch (Exception exception)

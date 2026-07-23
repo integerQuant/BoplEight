@@ -77,7 +77,7 @@ namespace BoplEight.Tests
             const float vanillaSeparation = 200f;
             float fitted = RosterLayout.FittedSeparation(vanillaSeparation, ProtocolConstants.MaximumPlayers);
 
-            Assert.Equal(vanillaSeparation * 3f, fitted * 7f, "Eight selectors must retain the total width of the vanilla four-selector row.");
+            Assert.Equal(RosterLayout.ScorePortraitSeparation, fitted, "Eight score portraits must use their measured non-overlapping card separation.");
         }
 
         public static void RosterLayoutPreservesPrefabScaleWhenFittingEightColumns()
@@ -101,6 +101,37 @@ namespace BoplEight.Tests
             float fittedChildOffset = (remoteVisualBaseline - localRoot) * RosterLayout.Scale;
 
             Assert.Equal(remoteVisualBaseline, fittedRoot + fittedChildOffset, "Scaling the local selector root must keep its offset ready card aligned with remote cards.");
+        }
+
+        public static void RosterLayoutExpandsAnimationTravelForScaledCards()
+        {
+            float fitted = RosterLayout.FittedAnimationBoundary(3000f, 0f);
+
+            Assert.True(System.Math.Abs(fitted - 7500f) < 0.01f, "Scaled character cards must retain the original screen-space animation travel.");
+        }
+
+        public static void RosterLayoutKeepsScorePortraitsCompact()
+        {
+            const float vanillaSeparation = 230f;
+            const float visualCardWidth = 107.17f;
+            float fivePlayerSeparation = RosterLayout.FittedSeparation(vanillaSeparation, 5);
+            float eightPlayerSeparation = RosterLayout.FittedSeparation(vanillaSeparation, 8);
+
+            Assert.True(fivePlayerSeparation >= visualCardWidth, "Five score portraits must not overlap.");
+            Assert.True(eightPlayerSeparation >= visualCardWidth, "Eight score portraits must not overlap.");
+            Assert.Equal(RosterLayout.ScorePortraitSeparation, fivePlayerSeparation, "Five score portraits must use the compact measured separation.");
+            Assert.Equal(RosterLayout.ScorePortraitSeparation, eightPlayerSeparation, "Eight score portraits must use the compact measured separation.");
+        }
+
+        public static void RosterLayoutPreservesRoundSummaryTiming()
+        {
+            const float vanillaSpacing = 0.3f;
+            const float vanillaNextLevelStagger = vanillaSpacing * 5f;
+            float fivePlayerStagger = RosterLayout.FittedRoundSummaryDelaySpacing(vanillaSpacing, 5) * 6f;
+            float eightPlayerStagger = RosterLayout.FittedRoundSummaryDelaySpacing(vanillaSpacing, 8) * 9f;
+
+            Assert.True(System.Math.Abs(fivePlayerStagger - vanillaNextLevelStagger) < 0.01f, "Five players must not delay the next-round control reveal.");
+            Assert.True(System.Math.Abs(eightPlayerStagger - vanillaNextLevelStagger) < 0.01f, "Eight players must retain the four-player next-round control timing.");
         }
 
         public static void SparseAvatarReadinessPreservesConnectionSlots()

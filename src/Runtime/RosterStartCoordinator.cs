@@ -172,6 +172,7 @@ namespace BoplEight.Runtime
                 return false;
             }
 
+            RosterRuntime.BeginNextLevelTransition(rosterToken);
             if (!SendControlTo(ownerSteamId, ModMessageType.RosterAck, roster.Settings.SequenceNumber, rosterToken))
             {
                 reason = "Steam rejected the BoplEight roster acknowledgement.";

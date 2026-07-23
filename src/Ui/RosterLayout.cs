@@ -5,6 +5,7 @@ namespace BoplEight.Ui
     internal static class RosterLayout
     {
         internal const float Scale = 0.4f;
+        internal const float ScorePortraitSeparation = 108f;
 
         internal static float ColumnCenter(float firstCenter, float lastCenter, int index, int count)
         {
@@ -20,7 +21,7 @@ namespace BoplEight.Ui
         {
             return playerCount <= 4
                 ? vanillaSeparation
-                : vanillaSeparation * 3f / (playerCount - 1);
+                : ScorePortraitSeparation;
         }
 
         internal static float FittedScale(float originalScale)
@@ -31,6 +32,18 @@ namespace BoplEight.Ui
         internal static float FittedRootPosition(float rootPosition, float visualBaseline)
         {
             return visualBaseline + (rootPosition - visualBaseline) * Scale;
+        }
+
+        internal static float FittedAnimationBoundary(float boundary, float restingPosition)
+        {
+            return restingPosition + (boundary - restingPosition) / Scale;
+        }
+
+        internal static float FittedRoundSummaryDelaySpacing(float vanillaSpacing, int playerCount)
+        {
+            return playerCount <= 4
+                ? vanillaSpacing
+                : vanillaSpacing * 5f / (playerCount + 1);
         }
 
         internal static bool IsExpandedRemoteSlot(string name)

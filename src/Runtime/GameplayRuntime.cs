@@ -243,10 +243,14 @@ namespace BoplEight.Runtime
         [HarmonyPatch(typeof(CharacterStatsList), "OnEnable")]
         private static class CharacterStatsListOnEnablePatch
         {
-            private static void Prefix(CharacterStatsList __instance)
+            private static void Prefix(CharacterStatsList __instance, ref float ___DelaySpacing, out float __state)
             {
+                __state = ___DelaySpacing;
                 if (BoplEightSession.ActiveRoster != null)
                 {
+                    ___DelaySpacing = RosterLayout.FittedRoundSummaryDelaySpacing(
+                        ___DelaySpacing,
+                        PlayerHandler.Get().NumberOfPlayers());
                     __instance.winnersOfDraw = ExtendWinnerImages(
                         __instance.winnersOfDraw,
                         ProtocolConstants.MaximumPlayers,
@@ -258,8 +262,9 @@ namespace BoplEight.Runtime
                 }
             }
 
-            private static void Postfix(CharacterStatsList __instance)
+            private static void Postfix(CharacterStatsList __instance, ref float ___DelaySpacing, float __state)
             {
+                ___DelaySpacing = __state;
                 if (BoplEightSession.ActiveRoster == null)
                 {
                     return;
