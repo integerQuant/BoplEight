@@ -17,6 +17,8 @@ namespace BoplEight.Runtime
         private static readonly FieldInfo OriginalHeightsField = AccessTools.Field(typeof(AnimateInOutUI), "originalHeights");
         private static readonly FieldInfo HorizontalInsteadField = AccessTools.Field(typeof(AnimateInOutUI), "horizontalInstead");
         private static readonly FieldInfo AutoCallAnimateInOnStartField = AccessTools.Field(typeof(AnimateInOutUI), "autoCallAnimateInOnStart");
+        private static readonly FieldInfo AnimatingInField = AccessTools.Field(typeof(AnimateInOutUI), "animatingIn");
+        private static readonly FieldInfo TimeSinceAnimateInField = AccessTools.Field(typeof(AnimateInOutUI), "timeSinceAnimateIn");
         private static readonly HashSet<int> ExpandedAnimationTravel = new HashSet<int>();
 
         private static float[] GetEightColumnCenters(Vector2[] vanillaPositions)
@@ -156,6 +158,40 @@ namespace BoplEight.Runtime
             }
         }
 
+        private static void ShowInitialJoinControl(CharacterSelectHandler_online handler)
+        {
+            if (handler == null
+                || handler.characterSelectBox == null
+                || handler.characterSelectBox.animateJoin == null
+                || AnimatedTransformsField == null
+                || OriginalHeightsField == null
+                || AnimatingInField == null
+                || TimeSinceAnimateInField == null)
+            {
+                return;
+            }
+
+            AnimateInOutUI animation = handler.characterSelectBox.animateJoin;
+            var transforms = (RectTransform[])AnimatedTransformsField.GetValue(animation);
+            var originalHeights = (float[])OriginalHeightsField.GetValue(animation);
+            if (transforms == null || originalHeights == null || transforms.Length != originalHeights.Length)
+            {
+                return;
+            }
+
+            for (var index = 0; index < transforms.Length; index++)
+            {
+                RectTransform target = transforms[index];
+                if (target != null)
+                {
+                    target.anchoredPosition = new Vector2(target.anchoredPosition.x, originalHeights[index]);
+                }
+            }
+
+            AnimatingInField.SetValue(animation, true);
+            TimeSinceAnimateInField.SetValue(animation, float.MaxValue);
+        }
+
         private static void AssignUniqueAvatarMaterial(SteamFrameButton square, string name)
         {
             if (square == null || square.image == null || square.image.material == null)
@@ -208,6 +244,7 @@ namespace BoplEight.Runtime
             localRect.anchoredPosition = new Vector2(slotCenters[0], localRootY);
             FitScale(localRect);
             ExpandCharacterAnimationTravel(localRect);
+            ShowInitialJoinControl(handler);
 
             var boxes = new List<CSBox_online>(RemotePlayerCapacity);
             for (var index = 0; index < originalBoxes.Length; index++)
@@ -428,6 +465,23 @@ namespace BoplEight.Runtime
             private static void Postfix(CharacterSelectHandler_online __instance)
             {
                 ExtendCharacterSelection(__instance);
+            }
+        }
+
+        [HarmonyPatch(typeof(AnimateInOutUI), "Start")]
+        private static class InitialJoinAnimationStartPatch
+        {
+            private static void Postfix(AnimateInOutUI __instance)
+            {
+                CharacterSelectHandler_online handler = UnityEngine.Object.FindObjectOfType<CharacterSelectHandler_online>();
+                if (handler != null
+                    && handler.characterSelectBox != null
+                    && __instance == handler.characterSelectBox.animateJoin
+                    && handler.networkPlayerBoxes != null
+                    && handler.networkPlayerBoxes.Length >= RemotePlayerCapacity)
+                {
+                    ShowInitialJoinControl(handler);
+                }
             }
         }
 

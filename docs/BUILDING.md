@@ -52,7 +52,7 @@ The installer build:
 2. Runs the installer-core tests.
 3. Stages the official BepInEx pack and current BoplEight DLL.
 4. Tests the exact staged payload in an isolated fake game directory.
-5. Embeds the payload into `installer/dist/BoplEight-Setup-1.0.5.exe`.
+5. Embeds the payload into `installer/dist/BoplEight-Setup-1.0.6.exe`.
 6. Writes a matching SHA-256 file.
 
 ## Automatic Discovery

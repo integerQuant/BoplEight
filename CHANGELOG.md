@@ -2,6 +2,10 @@
 
 All notable BoplEight changes are documented here.
 
+## 1.0.6 - 2026-07-22
+
+- Fixed Click to Join remaining off-screen under either Unity component initialization order.
+
 ## 1.0.5 - 2026-07-22
 
 - Restored the initial Click to Join control while keeping unentered team and item selectors hidden.

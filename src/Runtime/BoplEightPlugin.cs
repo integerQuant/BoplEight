@@ -23,7 +23,7 @@ namespace BoplEight.Runtime
     {
         public const string PluginGuid = "io.opencode.bopleight";
         public const string PluginName = "BoplEight";
-        public const string PluginVersion = "1.0.5";
+        public const string PluginVersion = "1.0.6";
 
         // Patches are only applied to the game assembly inspected for this release.
         private const string SupportedGameAssemblySha256 = "06A154AF64AD962E534587058219FB94216C5CE53605BB9AF5F77CB433A4AE07";
