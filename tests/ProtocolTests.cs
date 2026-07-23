@@ -40,6 +40,7 @@ namespace BoplEight.Tests
                 RuntimeModelTests.RosterLayoutKeepsOffsetReadyCardOnVisualBaseline,
                 RuntimeModelTests.RosterLayoutExpandsAnimationTravelForScaledCards,
                 RuntimeModelTests.RosterLayoutStartsScaledControlsAtTheFittedBoundary,
+                RuntimeModelTests.RosterLayoutPreservesEnteringJoinControl,
                 RuntimeModelTests.RosterLayoutKeepsScorePortraitsCompact,
                 RuntimeModelTests.RosterLayoutPreservesRoundSummaryTiming,
                 RuntimeModelTests.SparseAvatarReadinessPreservesConnectionSlots,

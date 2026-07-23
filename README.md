@@ -6,7 +6,7 @@ A BepInEx 5 plugin implementing an experimental synchronized 2-8 player mode for
 
 ## Current State
 
-- The plugin targets BepInEx 5.4.23.2 and BoplEight 1.0.4 protocol version 3.
+- The plugin targets BepInEx 5.4.23.2 and BoplEight 1.0.5 protocol version 3.
 - Runtime patches are applied only to the inspected `Assembly-CSharp.dll` SHA-256 `06A154AF64AD962E534587058219FB94216C5CE53605BB9AF5F77CB433A4AE07`.
 - Steam lobbies support two through eight players and reject vanilla, mismatched-plugin, mismatched-protocol, and mismatched-game clients.
 - Every peer verifies the same deterministic ability manifest before the host can start.
@@ -24,13 +24,13 @@ BoplEight lobbies are intentionally isolated from unmodded matchmaking. There is
 
 ## Build
 
-Run `./build.ps1` from this directory. The script runs 47 protocol/model/layout tests, compiles `dist/BoplEight.dll`, and installs it as `BepInEx/plugins/BoplEight.dll` unless `-NoInstall` is supplied.
+Run `./build.ps1` from this directory. The script runs 48 protocol/model/layout tests, compiles `dist/BoplEight.dll`, and installs it as `BepInEx/plugins/BoplEight.dll` unless `-NoInstall` is supplied.
 
 The repository can be cloned anywhere. Pass `-GameRoot`, set `BOPL_GAME_ROOT`, or let the scripts discover Bopl Battle through Steam. See [Building From Source](docs/BUILDING.md).
 
 ## Friend Installer
 
-Build the self-contained Windows installer with `./installer/build-installer.ps1`. The release executable is written to `installer/dist/BoplEight-Setup-1.0.4.exe` and includes BepInEx 5.4.23.2 plus BoplEight.
+Build the self-contained Windows installer with `./installer/build-installer.ps1`. The release executable is written to `installer/dist/BoplEight-Setup-1.0.5.exe` and includes BepInEx 5.4.23.2 plus BoplEight.
 
 Friends only need to run the EXE, approve the administrator prompt, click **Install BoplEight**, and then launch Bopl Battle normally through Steam. No mod manager or manual file placement is required. Because the installer is not code-signed, Windows SmartScreen may require **More info** followed by **Run anyway**.
 

@@ -16,6 +16,7 @@ namespace BoplEight.Runtime
         private static readonly FieldInfo EndHeightField = AccessTools.Field(typeof(AnimateInOutUI), "endHeight");
         private static readonly FieldInfo OriginalHeightsField = AccessTools.Field(typeof(AnimateInOutUI), "originalHeights");
         private static readonly FieldInfo HorizontalInsteadField = AccessTools.Field(typeof(AnimateInOutUI), "horizontalInstead");
+        private static readonly FieldInfo AutoCallAnimateInOnStartField = AccessTools.Field(typeof(AnimateInOutUI), "autoCallAnimateInOnStart");
         private static readonly HashSet<int> ExpandedAnimationTravel = new HashSet<int>();
 
         private static float[] GetEightColumnCenters(Vector2[] vanillaPositions)
@@ -47,7 +48,8 @@ namespace BoplEight.Runtime
                 || StartHeightField == null
                 || EndHeightField == null
                 || OriginalHeightsField == null
-                || HorizontalInsteadField == null)
+                || HorizontalInsteadField == null
+                || AutoCallAnimateInOnStartField == null)
             {
                 return;
             }
@@ -85,6 +87,12 @@ namespace BoplEight.Runtime
                 }
 
                 if (movesCardRoot || !movesDescendant)
+                {
+                    continue;
+                }
+
+                if (!RosterLayout.ShouldSetInitialAnimationPosition(
+                    (bool)AutoCallAnimateInOnStartField.GetValue(animation)))
                 {
                     continue;
                 }

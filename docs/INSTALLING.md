@@ -2,10 +2,10 @@
 
 ## Recommended Friend Install
 
-Distribute `BoplEight-Setup-1.0.4.exe` from the release artifacts. Each player should:
+Distribute `BoplEight-Setup-1.0.5.exe` from the release artifacts. Each player should:
 
 1. Close Bopl Battle.
-2. Run `BoplEight-Setup-1.0.4.exe`.
+2. Run `BoplEight-Setup-1.0.5.exe`.
 3. If Windows SmartScreen appears, select **More info**, then **Run anyway**.
 4. Approve the administrator prompt.
 5. Confirm the automatically detected Bopl Battle folder or use **Browse**.

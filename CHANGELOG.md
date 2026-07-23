@@ -2,6 +2,10 @@
 
 All notable BoplEight changes are documented here.
 
+## 1.0.5 - 2026-07-22
+
+- Restored the initial Click to Join control while keeping unentered team and item selectors hidden.
+
 ## 1.0.4 - 2026-07-22
 
 - Fixed the initial lobby showing an uninitialized team/item selector template until the local player navigated the menu.

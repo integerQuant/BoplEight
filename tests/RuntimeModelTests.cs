@@ -117,6 +117,16 @@ namespace BoplEight.Tests
             Assert.True(System.Math.Abs(initialPosition - 7500f) < 0.01f, "Controls hidden on first lobby load must use the fitted off-screen boundary before their first animation.");
         }
 
+        public static void RosterLayoutPreservesEnteringJoinControl()
+        {
+            Assert.False(
+                RosterLayout.ShouldSetInitialAnimationPosition(true),
+                "The auto-entering join control must not be reset off-screen.");
+            Assert.True(
+                RosterLayout.ShouldSetInitialAnimationPosition(false),
+                "Inactive template controls must begin at the fitted off-screen boundary.");
+        }
+
         public static void RosterLayoutKeepsScorePortraitsCompact()
         {
             const float vanillaSeparation = 230f;
